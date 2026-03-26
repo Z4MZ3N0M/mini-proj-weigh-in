@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeighIn Tracker | Sensia AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #c8f542;
+            --accent-dim: rgba(200,245,66,0.12);
+            --accent-glow: rgba(200,245,66,0.25);
+            --text: #f0f0ee;
+            --muted: #8a8c92;
+            --border: rgba(255,255,255,0.08);
+            --surface: rgba(8,8,10,0.75);
+            --surface2: rgba(255,255,255,0.05);
+            --danger: #ff3b3b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body { font-family: 'Space Grotesk', sans-serif; color: var(--text); overflow-x: hidden; cursor: none; background: #080809; }
+
+        .bg-slides { position: fixed; inset: 0; z-index: 0; }
+        .bg-slide { position: absolute; inset: 0; background-size: cover; background-position: center top; opacity: 0; transition: opacity 1.8s cubic-bezier(0.4,0,0.2,1), transform 60s linear; }
+        .bg-slide.active { opacity: 1; transform: scale(1.1); transition: opacity 1.8s cubic-bezier(0.4,0,0.2,1), transform 60s linear; }
+
+        .bg-slide::after {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, transparent 20%, rgba(8,8,10,0.4) 50%, rgba(8,8,10,0.95) 100%),
+                        linear-gradient(to right, rgba(8,8,10,0.85) 0%, transparent 40%, transparent 60%, rgba(8,8,10,0.5) 100%),
+                        linear-gradient(to top, rgba(8,8,10,1) 0%, rgba(8,8,10,0.2) 30%, transparent 100%);
+        }
+
+        .spotlight { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(circle 600px at var(--mx, 50%) var(--my, 50%), rgba(200,245,66,0.03), transparent 80%); }
+
+        .slide-indicators { position: fixed; right: 32px; top: 50%; transform: translateY(-50%); z-index: 10; display: flex; flex-direction: column; gap: 8px; }
+        .slide-pip { width: 3px; height: 16px; background: rgba(255,255,255,0.15); border-radius: 100px; transition: all 0.4s ease; cursor: none; }
+        .slide-pip.active { background: var(--accent); height: 32px; }
+
+        .slide-label { position: fixed; bottom: 40px; right: 40px; z-index: 10; text-align: right; }
+        .slide-label-sub { font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase; color: rgba(200,245,66,0.6); display: block; margin-bottom: 4px; }
+        .slide-label-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; color: rgba(255,255,255,0.7); display: block; transition: all 0.6s ease; }
+
+        .slide-progress { position: fixed; bottom: 0; left: 0; height: 2px; background: var(--accent); z-index: 10; width: 0%; transition: width 0.1s linear; }
+
+        body::before { content: ''; position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0.07; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E"); }
+
+        .cursor { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; }
+        .cursor-ring { width: 30px; height: 30px; border: 1px solid rgba(200,245,66,0.4); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9998; transition: border-color 0.2s; }
+
+        .wrap { max-width: 1280px; margin: 0 auto; padding: 0 48px; position: relative; z-index: 5; }
+        nav { display: flex; justify-content: space-between; align-items: center; padding: 32px 0 28px; border-bottom: 1px solid var(--border); }
+        .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 4px; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+        .logo-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.4); } }
+        .nav-right { display: flex; gap: 40px; align-items: center; }
+        .nav-stat { text-align: right; }
+        .nav-stat-label { font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 2px; }
+        .nav-stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 1px; color: var(--accent); }
+
+        .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; min-height: 88vh; align-items: center; gap: 60px; padding: 60px 0 40px; }
+        .hero-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); background: rgba(255,255,255,0.03); padding: 6px 16px; border-radius: 100px; margin-bottom: 32px; backdrop-filter: blur(10px); }
+        .hero-tag-dot { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+        h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(4.5rem, 9vw, 8rem); line-height: 0.88; letter-spacing: 2px; margin-bottom: 32px; }
+        h1 .line { display: block; overflow: hidden; }
+        h1 .line span { display: block; animation: slideUp 0.9s cubic-bezier(0.16,1,0.3,1) both; }
+        @keyframes slideUp { from { transform: translateY(110%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .hero-sub { font-size: 0.92rem; color: var(--muted); line-height: 1.75; max-width: 340px; margin-bottom: 48px; font-weight: 300; }
+        .weight-display { display: inline-flex; align-items: flex-end; gap: 14px; background: rgba(8,8,10,0.6); backdrop-filter: blur(20px); border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: 16px; padding: 20px 28px; }
+        .weight-number { font-family: 'Bebas Neue', sans-serif; font-size: 4.5rem; line-height: 1; color: var(--accent); letter-spacing: 2px; }
+        .weight-meta { padding-bottom: 6px; }
+        .weight-unit { font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: block; }
+        .weight-tag { font-size: 0.55rem; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(200,245,66,0.5); margin-top: 4px; display: block; }
+
+        .form-card { background: rgba(10,10,12,0.82); backdrop-filter: blur(24px); border: 1px solid var(--border); border-top: 2px solid var(--accent); border-radius: 24px; padding: 36px; animation: fadeUp 0.8s 0.5s both; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        .form-eyebrow { font-size: 0.58rem; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+        .form-eyebrow::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 7px; }
+        label { font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+        input, select { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-left: 2px solid transparent; border-radius: 10px; padding: 13px 16px; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-size: 0.88rem; outline: none; transition: all 0.2s; -webkit-appearance: none; }
+        input:focus, select:focus { border-color: rgba(255,255,255,0.12); border-left-color: var(--accent); background: rgba(255,255,255,0.07); }
+        select option { background: #16181c; color: #f0f0ee; }
+
+        .btn-submit { width: 100%; padding: 16px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 4px; cursor: none; position: relative; overflow: hidden; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .btn-submit::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transform: translateX(-100%); transition: transform 0.55s ease; }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 12px 40px var(--accent-glow); }
+        .btn-submit:hover::after { transform: translateX(100%); }
+        .btn-submit:active { transform: scale(0.98); }
+
+        .marquee-wrap { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 16px 0; overflow: hidden; position: relative; z-index: 5; background: rgba(8,8,10,0.6); backdrop-filter: blur(10px); }
+        .marquee-track { display: flex; gap: 50px; animation: marquee 20s linear infinite; white-space: nowrap; }
+        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .marquee-item { font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem; letter-spacing: 3px; color: var(--muted); display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+        .m-dot { width: 4px; height: 4px; background: var(--accent); border-radius: 50%; flex-shrink: 0; }
+
+        .log-section { position: relative; z-index: 5; padding: 80px 0 40px; }
+        .section-header { display: flex; align-items: center; gap: 18px; margin-bottom: 28px; }
+        .section-num { font-family: 'Bebas Neue', sans-serif; font-size: 0.7rem; letter-spacing: 2px; color: var(--muted); }
+        .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 4px; color: var(--text); text-transform: uppercase; }
+        .section-line { flex: 1; height: 1px; background: var(--border); }
+        .table-wrap { background: rgba(8,8,10,0.8); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { border-bottom: 1px solid var(--border); }
+        th { padding: 16px 24px; text-align: left; font-size: 0.58rem; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); font-weight: 600; background: rgba(255,255,255,0.02); }
+        td { padding: 18px 24px; font-size: 0.88rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tbody tr { animation: rowIn 0.4s both; }
+        @keyframes rowIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        tbody tr:hover td { background: rgba(200,245,66,0.03); }
+        .weight-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.25rem; letter-spacing: 1px; color: var(--accent); }
+        .phase-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 100px; font-size: 0.62rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(200,245,66,0.2); }
+        .phase-dot { width: 5px; height: 5px; border-radius: 50%; }
+        .btn-del { background: transparent; border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.2); font-size: 0.62rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 6px 14px; border-radius: 8px; cursor: none; transition: all 0.2s; font-family: 'Space Grotesk', sans-serif; }
+        .btn-del:hover { border-color: var(--danger); color: var(--danger); background: rgba(255,59,59,0.06); }
+
+        footer { border-top: 1px solid var(--border); padding: 28px 0 36px; display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 5; }
+        .footer-left { font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem; letter-spacing: 3px; color: var(--muted); }
+        .footer-right { font-size: 0.65rem; letter-spacing: 1px; color: rgba(255,255,255,0.2); }
+
+        @media (max-width: 900px) { .hero { grid-template-columns: 1fr; min-height: auto; padding: 40px 0; } .wrap { padding: 0 20px; } .slide-indicators { display: none; } .slide-label { right: 20px; bottom: 20px; } }
+    </style>
+</head>
+<body>
+
+    <div class="cursor" id="cursor"></div>
+    <div class="cursor-ring" id="cursorRing"></div>
+
+    <div class="bg-slides" id="bgSlides">
+        <div class="bg-slide active" style="background-image: url('https://wallpapercave.com/wp/wp10528224.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp10528214.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp10528217.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp1891992.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp5463875.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp6606701.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp1891963.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp1991106.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp4788322.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp2986782.jpg')"></div>
+        <div class="bg-slide" style="background-image: url('https://wallpapercave.com/wp/wp2861576.jpg')"></div>
+    </div>
+    <div class="spotlight" id="spotlight"></div>
+
+    <div class="slide-indicators" id="slideIndicators"></div>
+
+    <div class="slide-label">
+        <span class="slide-label-sub">Fuel Your Drive</span>
+        <span class="slide-label-name" id="slideNameEl">Warrior Spirit</span>
+    </div>
+
+    <div class="slide-progress" id="slideProgress"></div>
+
+    <div class="wrap">
+        <nav>
+            <div class="logo"><div class="logo-dot"></div>LOG UR WEIGHT</div>
+            <div class="nav-right">
+                <div class="nav-stat"><span class="nav-stat-label">Avg Calories</span><span class="nav-stat-value" id="avgCalories">---</span></div>
+                <div class="nav-stat"><span class="nav-stat-label">Total Logs</span><span class="nav-stat-value" id="totalEntries">---</span></div>
+            </div>
+        </nav>
+
+        <section class="hero">
+            <div class="hero-left">
+                <div class="hero-tag"><span class="hero-tag-dot"></span> Recomp Phase Active</div>
+                <h1><span class="line"><span>TRACK</span></span><span class="line"><span>STRENGTH.</span></span><span class="line"><span>LOG PROGRESS.</span></span></h1>
+                <p class="hero-sub">Every kg logged is one step closer. Precision tracking for the disciplined.</p>
+                <div class="weight-display">
+                    <div class="weight-number" id="latestWeight">--</div>
+                    <div class="weight-meta"><span class="weight-unit">kg</span><span class="weight-tag">Last Recorded</span></div>
+                </div>
+            </div>
+
+            <div class="form-card">
+                <div class="form-eyebrow">New Entry</div>
+                <form id="entryForm">
+                    <div class="form-grid">
+                        <div class="form-group"><label for="date">Date</label><input type="date" id="date" required></div>
+                        <div class="form-group"><label for="weight">Weight (kg)</label><input type="number" step="0.01" id="weight" placeholder="74.15" required></div>
+                        <div class="form-group"><label for="phase">Phase</label><select id="phase" required><option value="Recomp">Recomp</option><option value="Cut">Cut</option><option value="Bulk">Bulk</option><option value="Maintenance">Maintenance</option></select></div>
+                        <div class="form-group"><label for="calories">Daily Cals</label><input type="number" id="calories" placeholder="2289" required></div>
+                    </div>
+                    <button type="submit" class="btn-submit">Sync Log Entry</button>
+                </form>
+            </div>
+        </section>
+    </div>
+
+    <div class="marquee-wrap">
+        <div class="marquee-track">
+            <div class="marquee-item"><span class="m-dot"></span>WARRIOR SPIRIT</div>
+            <div class="marquee-item"><span class="m-dot"></span>DISCIPLINE OVER MOTIVATION</div>
+            <div class="marquee-item"><span class="m-dot"></span>FORGED IN THE GYM</div>
+            <div class="marquee-item"><span class="m-dot"></span>EVERY REP COUNTS</div>
+            <div class="marquee-item"><span class="m-dot"></span>TRUST THE PROCESS</div>
+            <div class="marquee-item"><span class="m-dot"></span>UNSTOPPABLE DRIVE</div>
+            <div class="marquee-item"><span class="m-dot"></span>PEAK DISCIPLINE</div>
+            <div class="marquee-item"><span class="m-dot"></span>WARRIOR SPIRIT</div>
+            <div class="marquee-item"><span class="m-dot"></span>DISCIPLINE OVER MOTIVATION</div>
+            <div class="marquee-item"><span class="m-dot"></span>FORGED IN THE GYM</div>
+            <div class="marquee-item"><span class="m-dot"></span>EVERY REP COUNTS</div>
+            <div class="marquee-item"><span class="m-dot"></span>TRUST THE PROCESS</div>
+            <div class="marquee-item"><span class="m-dot"></span>UNSTOPPABLE DRIVE</div>
+            <div class="marquee-item"><span class="m-dot"></span>PEAK DISCIPLINE</div>
+        </div>
+    </div>
+
+    <div class="wrap">
+        <section class="log-section">
+            <div class="section-header"><span class="section-num">01</span><span class="section-title">Progress Log</span><div class="section-line"></div></div>
+            <div class="table-wrap">
+                <table id="entriesTable">
+                    <thead><tr><th>Sync Date</th><th>Weight</th><th>Phase</th><th>Calories</th><th></th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </section>
+        <footer><div class="footer-left">Built for the Grind 🔥</div><div class="footer-right">WeighIn · Sensia — 2026</div></footer>
+    </div>
+
+    <script>
+        const cur = document.getElementById('cursor');
+        const ring = document.getElementById('cursorRing');
+        const spotlight = document.getElementById('spotlight');
+        let mx=0,my=0,rx=0,ry=0;
+        document.addEventListener('mousemove', e => {
+            mx=e.clientX; my=e.clientY;
+            cur.style.left=(mx-4)+'px'; cur.style.top=(my-4)+'px';
+            document.documentElement.style.setProperty('--mx', mx + 'px');
+            document.documentElement.style.setProperty('--my', my + 'px');
+        });
+        (function animRing(){
+            rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12;
+            ring.style.left=(rx-15)+'px'; ring.style.top=(ry-15)+'px';
+            requestAnimationFrame(animRing);
+        })();
+
+        const slides = document.querySelectorAll('.bg-slide');
+        const nameEl = document.getElementById('slideNameEl');
+        const progressBar = document.getElementById('slideProgress');
+        const indicatorWrap = document.getElementById('slideIndicators');
+        const slideNames = ['Warrior Spirit', 'Warrior Spirit', 'Warrior Spirit', 'Unstoppable Drive', 'Unstoppable Drive', 'Unstoppable Drive', 'Unstoppable Drive', 'Peak Discipline', 'Peak Discipline', 'Peak Discipline', 'Peak Discipline'];
+        const DURATION = 60000;
+        let current = 0; let startTime = Date.now();
+
+        slides.forEach((_, i) => {
+            const pip = document.createElement('div');
+            pip.className = 'slide-pip' + (i === 0 ? ' active' : '');
+            pip.addEventListener('click', () => goToSlide(i));
+            indicatorWrap.appendChild(pip);
+        });
+        const pips = document.querySelectorAll('.slide-pip');
+
+        function goToSlide(idx) {
+            slides[current].classList.remove('active'); pips[current].classList.remove('active');
+            current = idx;
+            slides[current].classList.add('active'); pips[current].classList.add('active');
+            nameEl.style.opacity = '0'; nameEl.style.transform = 'translateY(8px)';
+            setTimeout(() => { nameEl.textContent = slideNames[current]; nameEl.style.opacity = '1'; nameEl.style.transform = 'translateY(0)'; }, 300);
+            startTime = Date.now();
+        }
+
+        function tickProgress() {
+            const elapsed = Date.now() - startTime;
+            const pct = Math.min((elapsed / DURATION) * 100, 100);
+            progressBar.style.width = pct + '%';
+            if (elapsed >= DURATION) goToSlide((current + 1) % slides.length);
+            requestAnimationFrame(tickProgress);
+        }
+        tickProgress();
+
+        const API_URL = '/entries';
+        document.getElementById('date').valueAsDate = new Date();
+
+        async function fetchEntries() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                renderTable(data); updateStats(data);
+            } catch(e) { console.error(e); }
+        }
+
+        function renderTable(data) {
+            const tb = document.getElementById('tableBody'); tb.innerHTML = '';
+            data.forEach(entry => {
+                const tr = document.createElement('tr');
+                const d = new Date(entry.log_date);
+                const ds = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+                tr.innerHTML = `
+                    <td style="color:var(--muted)">${ds}</td>
+                    <td><span class="weight-val">${parseFloat(entry.weight).toFixed(2)}</span> <span style="font-size:0.7rem;color:var(--muted)">kg</span></td>
+                    <td><span class="phase-pill"><span class="phase-dot" style="background:${entry.phase==='Cut'?'#ff3b3b':entry.phase==='Bulk'?'#3b9fff':'#c8f542'}"></span>${entry.phase}</span></td>
+                    <td style="color:var(--muted);font-size:0.85rem">${entry.calories} <span style="font-size:0.65rem">kcal</span></td>
+                    <td style="text-align:right"><button class="btn-del" onclick="deleteEntry(${entry.id})">Remove</button></td>
+                `;
+                tb.appendChild(tr);
+            });
+        }
+
+        function updateStats(data) {
+            if (!data||!data.length) { document.getElementById('latestWeight').textContent='--'; document.getElementById('avgCalories').textContent='---'; document.getElementById('totalEntries').textContent='0'; return; }
+            document.getElementById('latestWeight').textContent = parseFloat(data[0].weight).toFixed(2);
+            const avg = Math.round(data.reduce((a,c)=>a + Number(c.calories),0)/data.length);
+            document.getElementById('avgCalories').textContent = avg;
+            document.getElementById('totalEntries').textContent = data.length;
+        }
+
+        document.getElementById('entryForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const entry = { 
+                log_date: document.getElementById('date').value, 
+                weight: parseFloat(document.getElementById('weight').value), 
+                phase: document.getElementById('phase').value, 
+                calories: parseInt(document.getElementById('calories').value) 
+            };
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(entry)
+                });
+                if(res.ok){ fetchEntries(); document.getElementById('weight').value=''; document.getElementById('calories').value=''; }
+                else { const err=await res.json(); alert('Failed: '+err.error); }
+            } catch(e){ console.error(e); }
+        });
+
+        async function deleteEntry(id) {
+            if(!confirm('Delete this entry?')) return;
+            try {
+                const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                if(res.ok) fetchEntries();
+            } catch(e){ console.error(e); }
+        }
+        fetchEntries();
+    </script>
+</body>
+</html>

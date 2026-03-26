@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.js.tmp
+*.log
+test_db.js
+check_entries.js
+check_raw.js
+test_post.js
+test_post_core.js
+.DS_Store
