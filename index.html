@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --accent: #c8f542;
@@ -119,6 +120,10 @@
         .btn-del { background: transparent; border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.2); font-size: 0.62rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 6px 14px; border-radius: 8px; cursor: none; transition: all 0.2s; font-family: 'Space Grotesk', sans-serif; }
         .btn-del:hover { border-color: var(--danger); color: var(--danger); background: rgba(255,59,59,0.06); }
 
+        .visuals-section { padding: 40px 0; position: relative; z-index: 5; }
+        .chart-container { background: rgba(8,8,10,0.8); backdrop-filter: blur(24px); border: 1px solid var(--border); border-radius: 24px; padding: 32px; height: 420px; position: relative; }
+        #weightChart { width: 100% !important; height: 100% !important; }
+
         footer { border-top: 1px solid var(--border); padding: 28px 0 36px; display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 5; }
         .footer-left { font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem; letter-spacing: 3px; color: var(--muted); }
         .footer-right { font-size: 0.65rem; letter-spacing: 1px; color: rgba(255,255,255,0.2); }
@@ -159,6 +164,8 @@
         <nav>
             <div class="logo"><div class="logo-dot"></div>LOG UR WEIGHT</div>
             <div class="nav-right">
+                <div class="nav-stat"><span class="nav-stat-label">Goal</span><span class="nav-stat-value" id="goalWeight">---</span></div>
+                <div class="nav-stat"><span class="nav-stat-label">7D Avg Weight</span><span class="nav-stat-value" id="avgWeight7d">---</span></div>
                 <div class="nav-stat"><span class="nav-stat-label">Avg Calories</span><span class="nav-stat-value" id="avgCalories">---</span></div>
                 <div class="nav-stat"><span class="nav-stat-label">Total Logs</span><span class="nav-stat-value" id="totalEntries">---</span></div>
             </div>
@@ -188,6 +195,13 @@
                 </form>
             </div>
         </section>
+
+        <section class="visuals-section" id="visuals">
+            <div class="section-header"><span class="section-num">01</span><span class="section-title">Telemetry Visuals</span><div class="section-line"></div></div>
+            <div class="chart-container">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </section>
     </div>
 
     <div class="marquee-wrap">
@@ -211,7 +225,7 @@
 
     <div class="wrap">
         <section class="log-section">
-            <div class="section-header"><span class="section-num">01</span><span class="section-title">Progress Log</span><div class="section-line"></div></div>
+            <div class="section-header"><span class="section-num">02</span><span class="section-title">Progress Log</span><div class="section-line"></div></div>
             <div class="table-wrap">
                 <table id="entriesTable">
                     <thead><tr><th>Sync Date</th><th>Weight</th><th>Phase</th><th>Calories</th><th></th></tr></thead>
@@ -280,8 +294,78 @@
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
-                renderTable(data); updateStats(data);
+                renderTable(data); updateStats(data); renderChart(data);
             } catch(e) { console.error(e); }
+        }
+
+        let myChart;
+        function renderChart(data) {
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            const sortedData = [...data].sort((a,b) => new Date(a.log_date) - new Date(b.log_date));
+            const labels = sortedData.map(e => {
+                const d = new Date(e.log_date);
+                return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+            });
+            const weights = sortedData.map(e => parseFloat(e.weight));
+            const calories = sortedData.map(e => e.calories);
+
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Weight (kg)',
+                            data: weights,
+                            borderColor: '#c8f542',
+                            backgroundColor: 'rgba(200,245,66,0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#c8f542',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Calories (kcal)',
+                            data: calories,
+                            borderColor: 'rgba(255,255,255,0.2)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            pointRadius: 0,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { color: '#8a8c92', font: { family: 'Space Grotesk', size: 10 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#8a8c92', font: { family: 'Space Grotesk', size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#c8f542', font: { family: 'Bebas Neue', size: 14 } },
+                            position: 'left'
+                        },
+                        y1: {
+                            grid: { display: false },
+                            ticks: { color: '#8a8c92', font: { family: 'Bebas Neue', size: 14 } },
+                            position: 'right'
+                        }
+                    }
+                }
+            });
         }
 
         function renderTable(data) {
@@ -302,11 +386,39 @@
         }
 
         function updateStats(data) {
-            if (!data||!data.length) { document.getElementById('latestWeight').textContent='--'; document.getElementById('avgCalories').textContent='---'; document.getElementById('totalEntries').textContent='0'; return; }
-            document.getElementById('latestWeight').textContent = parseFloat(data[0].weight).toFixed(2);
-            const avg = Math.round(data.reduce((a,c)=>a + Number(c.calories),0)/data.length);
-            document.getElementById('avgCalories').textContent = avg;
+            if (!data||!data.length) { 
+                document.getElementById('latestWeight').textContent='--'; 
+                document.getElementById('avgCalories').textContent='---'; 
+                document.getElementById('totalEntries').textContent='0'; 
+                document.getElementById('avgWeight7d').textContent='---';
+                return; 
+            }
+            const latest = parseFloat(data[0].weight);
+            document.getElementById('latestWeight').textContent = latest.toFixed(2);
+            
+            // Weekly Avg (Last 7 entries or all if < 7)
+            const weeklyData = data.slice(0, 7);
+            const avgWeight7d = weeklyData.reduce((a,c)=>a + parseFloat(c.weight), 0) / weeklyData.length;
+            document.getElementById('avgWeight7d').textContent = avgWeight7d.toFixed(2);
+
+            const avgCals = Math.round(data.reduce((a,c)=>a + Number(c.calories),0)/data.length);
+            document.getElementById('avgCalories').textContent = avgCals;
             document.getElementById('totalEntries').textContent = data.length;
+
+            // Goal Logic (Local Storage for now)
+            const goal = localStorage.getItem('weightGoal') || 70;
+            document.getElementById('goalWeight').textContent = goal;
+            
+            // Update Hero Tag with Goal Info
+            const diff = (latest - goal).toFixed(1);
+            const heroTag = document.querySelector('.hero-tag');
+            heroTag.innerHTML = `<span class="hero-tag-dot"></span> ${diff > 0 ? diff + 'kg to target' : 'Goal Achieved'}`;
+        }
+
+        // Add a small helper to change goal via console or prompt for now
+        function setGoal(val) {
+            localStorage.setItem('weightGoal', val);
+            fetchEntries();
         }
 
         document.getElementById('entryForm').addEventListener('submit', async e => {
@@ -315,7 +427,7 @@
                 log_date: document.getElementById('date').value, 
                 weight: parseFloat(document.getElementById('weight').value), 
                 phase: document.getElementById('phase').value, 
-                calories: parseInt(document.getElementById('calories').value) 
+                calories: parseInt(document.getElementById('calories').value)
             };
             try {
                 const res = await fetch(API_URL, {
